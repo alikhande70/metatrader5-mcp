@@ -53,6 +53,28 @@ def test_missing_report_raises_file_not_found(tmp_path, monkeypatch):
         report_reader.read_strategy_report("missing.html")
 
 
+def test_missing_report_message_lists_available_reports(tmp_path, monkeypatch):
+    monkeypatch.setenv("MT5_MCP_REPORTS_DIR", str(tmp_path))
+    (tmp_path / "report1.html").write_text(SAMPLE_REPORT_HTML, encoding="utf-8")
+    (tmp_path / "report2.htm").write_text(SAMPLE_REPORT_HTML, encoding="utf-8")
+
+    with pytest.raises(FileNotFoundError) as exc_info:
+        report_reader.read_strategy_report("missing.html")
+    msg = str(exc_info.value)
+    assert "report1.html" in msg
+    assert "report2.htm" in msg
+    assert str(tmp_path) in msg
+    assert "MT5_MCP_REPORTS_DIR" in msg
+
+
+def test_missing_report_message_with_no_reports_present(tmp_path, monkeypatch):
+    monkeypatch.setenv("MT5_MCP_REPORTS_DIR", str(tmp_path))
+    with pytest.raises(FileNotFoundError) as exc_info:
+        report_reader.read_strategy_report("missing.html")
+    msg = str(exc_info.value)
+    assert "No .html/.htm reports found" in msg
+
+
 def test_absolute_path_outside_reports_dir_is_rejected(tmp_path, monkeypatch):
     # Reports dir is a subdir; an absolute path to a sensitive file elsewhere
     # must be rejected even though the file exists.
@@ -92,6 +114,15 @@ def test_non_html_extension_is_rejected(tmp_path, monkeypatch):
 
     with pytest.raises(ReportPathError):
         report_reader.read_strategy_report("passwd.txt")
+
+
+def test_non_html_extension_message_mentions_base_dir_and_env_var(tmp_path, monkeypatch):
+    monkeypatch.setenv("MT5_MCP_REPORTS_DIR", str(tmp_path))
+    with pytest.raises(ReportPathError) as exc_info:
+        report_reader.read_strategy_report("passwd.txt")
+    msg = str(exc_info.value)
+    assert str(tmp_path) in msg
+    assert "MT5_MCP_REPORTS_DIR" in msg
 
 
 def test_default_reports_dir_used_when_env_unset(tmp_path, monkeypatch):

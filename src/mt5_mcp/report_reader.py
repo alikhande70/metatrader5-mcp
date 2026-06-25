@@ -100,12 +100,15 @@ def _resolve_report_path(path: str) -> Path:
     Rejects disallowed extensions, absolute paths that point outside the base
     directory, and any `..` traversal that escapes it.
     """
+    base_dir = _reports_base_dir()
+
     if Path(path).suffix.lower() not in ALLOWED_REPORT_SUFFIXES:
         raise ReportPathError(
-            f"read_strategy_report only accepts {'/'.join(ALLOWED_REPORT_SUFFIXES)} files, got '{path}'."
+            f"read_strategy_report only accepts {'/'.join(ALLOWED_REPORT_SUFFIXES)} files, got "
+            f"'{path}'. Reports are resolved under {base_dir} (set MT5_MCP_REPORTS_DIR to change "
+            f"this; default is '{DEFAULT_REPORTS_DIRNAME}/')."
         )
 
-    base_dir = _reports_base_dir()
     # Joining keeps relative paths under base_dir; if `path` is absolute it wins
     # the join, so the containment check below is what actually enforces safety.
     candidate = (base_dir / path).resolve()
@@ -118,6 +121,18 @@ def _resolve_report_path(path: str) -> Path:
     return candidate
 
 
+def _list_available_reports(base_dir: Path, limit: int = 20) -> list[str]:
+    """Relative paths of .html/.htm files under `base_dir`, for diagnostics only."""
+    if not base_dir.exists():
+        return []
+    matches = sorted(
+        str(p.relative_to(base_dir))
+        for suffix in ALLOWED_REPORT_SUFFIXES
+        for p in base_dir.rglob(f"*{suffix}")
+    )
+    return matches[:limit]
+
+
 def read_strategy_report(path: str) -> dict[str, Any]:
     """Parse an MT5 Strategy Tester HTML report into a summary dict + raw table rows.
 
@@ -127,7 +142,14 @@ def read_strategy_report(path: str) -> dict[str, Any]:
     """
     report_path = _resolve_report_path(path)
     if not report_path.exists():
-        raise FileNotFoundError(f"Strategy Tester report not found: {report_path}")
+        base_dir = _reports_base_dir()
+        available = _list_available_reports(base_dir)
+        hint = f"Available reports under {base_dir}: {available}" if available else f"No .html/.htm reports found under {base_dir}."
+        raise FileNotFoundError(
+            f"Strategy Tester report not found: {report_path}. Reports are resolved under "
+            f"{base_dir} (set MT5_MCP_REPORTS_DIR to change this; default is "
+            f"'{DEFAULT_REPORTS_DIRNAME}/'). {hint}"
+        )
 
     try:
         html_text = report_path.read_text(encoding="utf-8")
