@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# secrets / local config - never commit credentials
+.env
+*.env.local
+
+# runtime data (logs, approval files) - not source, machine-specific
+logs/*.log
+approvals/pending_*.json
+approvals/approved_*.txt
+approvals/denied_*.txt
+
+.pytest_cache/
+.mypy_cache/
+.coverage
