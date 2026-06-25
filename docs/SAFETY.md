@@ -65,3 +65,15 @@ params), approval/blocked decision, and successful completion. `logs/mt5_mcp.log
 gets normal application/error logging (connection events, risk guard
 warnings, etc). Neither file is given to the LLM as a tool result - they're
 for the human operator to audit.
+
+## File-path confinement (SAFE_READ file tools)
+
+`read_strategy_report` reads files from disk, so it must not become a way to
+read arbitrary local files. Every requested path is resolved strictly inside
+the reports directory (`MT5_MCP_REPORTS_DIR`, or the default `reports/` under
+the runtime working directory):
+
+- only `.html`/`.htm` files are accepted;
+- the resolved real path must stay within the reports directory, so absolute
+  paths pointing elsewhere and `..` traversal that escapes the directory are
+  rejected with a `ReportPathError`.

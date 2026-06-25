@@ -15,7 +15,7 @@ All parameters are JSON-serializable; all responses are plain dicts/lists.
 | `get_orders` | `symbol: str | None`, `ticket: int | None` | List of active pending order dicts. |
 | `get_history_deals` | `date_from`, `date_to` (ISO date strings), or `ticket`, or `position`, optional `group` | List of historical deal dicts. |
 | `read_log` | `date: str | None` (YYYYMMDD, default today), `lines: int = 200`, `kind: "terminal" | "experts"` | Tail of the MT5 log file for that date. |
-| `read_strategy_report` | `path: str` | Parsed Strategy Tester HTML report: `summary` dict + `raw_rows`. |
+| `read_strategy_report` | `path: str` (a `.html`/`.htm` file inside the reports directory) | Parsed Strategy Tester HTML report: `summary` dict + `raw_rows`. Confined to `MT5_MCP_REPORTS_DIR` (default `reports/`); absolute paths and `..` traversal that escape it are rejected. |
 
 ## SAFE_ANALYSIS
 

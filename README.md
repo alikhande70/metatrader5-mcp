@@ -51,7 +51,7 @@ Key settings:
 | `MT5_MCP_APPROVAL_MODE` | `console` | `console` (type yes/no in the server's terminal) or `file` (approve via `approvals/approved_<id>.txt`). |
 | `MT5_MCP_ENABLE_DEMO_TRADING` | `false` | Order-planning tools are disabled even on a demo account unless this is `true`. Real/contest accounts are **always** blocked regardless of this flag. |
 | `MT5_MCP_LOG_DIR` | `logs` | Where `mt5_mcp.log` and `actions.log` are written. |
-| `MT5_MCP_REPORTS_DIR` | unset | Base directory for relative Strategy Tester report paths. |
+| `MT5_MCP_REPORTS_DIR` | `reports/` (under the runtime dir) | Directory that `read_strategy_report` is confined to. Only `.html`/`.htm` files inside it are readable; absolute paths and `..` traversal that escape it are rejected. |
 
 ## Run the server locally
 

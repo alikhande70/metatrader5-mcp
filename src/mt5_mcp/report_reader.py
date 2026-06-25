@@ -5,6 +5,13 @@ parser using only the standard library - it does not assume one specific
 report layout, so it pairs up "Label:" / value table cells (the common MT5
 convention) into a flat summary dict, and also returns the raw rows so a
 caller can dig into anything the summary heuristic misses.
+
+Path safety: because this is a SAFE_READ tool, it must only ever read
+Strategy Tester reports - never arbitrary files. Every requested path is
+confined to the reports directory (MT5_MCP_REPORTS_DIR, or the documented
+default `reports/` under the runtime working directory). Absolute paths and
+`..` traversal that escape that directory are rejected, and only .html/.htm
+files are allowed.
 """
 
 from __future__ import annotations
@@ -14,6 +21,17 @@ import re
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
+
+# Default reports directory used when MT5_MCP_REPORTS_DIR is not set. It lives
+# under the runtime working directory so the SAFE_READ tool has a bounded,
+# documented location to read from rather than the whole filesystem.
+DEFAULT_REPORTS_DIRNAME = "reports"
+
+ALLOWED_REPORT_SUFFIXES = (".html", ".htm")
+
+
+class ReportPathError(ValueError):
+    """Raised when a report path escapes the allowed reports directory or has a disallowed extension."""
 
 
 class _TableHTMLParser(HTMLParser):
@@ -68,20 +86,45 @@ def _summary_from_rows(rows: list[list[str]]) -> dict[str, str]:
     return summary
 
 
-def _resolve_report_path(path: str) -> Path:
-    candidate = Path(path)
-    if candidate.is_absolute() or candidate.exists():
-        return candidate
+def _reports_base_dir() -> Path:
+    """Resolved base directory that all reports must live under."""
     base = os.environ.get("MT5_MCP_REPORTS_DIR")
     if base:
-        from_base = Path(base) / path
-        if from_base.exists():
-            return from_base
+        return Path(base).expanduser().resolve()
+    return (Path.cwd() / DEFAULT_REPORTS_DIRNAME).resolve()
+
+
+def _resolve_report_path(path: str) -> Path:
+    """Resolve `path` strictly inside the reports base directory.
+
+    Rejects disallowed extensions, absolute paths that point outside the base
+    directory, and any `..` traversal that escapes it.
+    """
+    if Path(path).suffix.lower() not in ALLOWED_REPORT_SUFFIXES:
+        raise ReportPathError(
+            f"read_strategy_report only accepts {'/'.join(ALLOWED_REPORT_SUFFIXES)} files, got '{path}'."
+        )
+
+    base_dir = _reports_base_dir()
+    # Joining keeps relative paths under base_dir; if `path` is absolute it wins
+    # the join, so the containment check below is what actually enforces safety.
+    candidate = (base_dir / path).resolve()
+
+    if not candidate.is_relative_to(base_dir):
+        raise ReportPathError(
+            f"Report path '{path}' resolves outside the allowed reports directory ({base_dir}). "
+            "Use a path inside MT5_MCP_REPORTS_DIR (or the default 'reports/' directory)."
+        )
     return candidate
 
 
 def read_strategy_report(path: str) -> dict[str, Any]:
-    """Parse an MT5 Strategy Tester HTML report into a summary dict + raw table rows."""
+    """Parse an MT5 Strategy Tester HTML report into a summary dict + raw table rows.
+
+    `path` is always resolved inside the reports directory (MT5_MCP_REPORTS_DIR
+    or the default `reports/`); arbitrary absolute paths and `..` traversal are
+    rejected, and only .html/.htm files are allowed.
+    """
     report_path = _resolve_report_path(path)
     if not report_path.exists():
         raise FileNotFoundError(f"Strategy Tester report not found: {report_path}")
