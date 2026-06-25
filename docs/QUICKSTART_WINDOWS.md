@@ -79,8 +79,9 @@ require approval** (it never calls a REQUIRES_APPROVAL tool).
 python scripts\mt5_readiness_check.py
 ```
 
-> The readiness script ships in a later Phase 2 PR. Until then, use the manual
-> tool-by-tool checklist in the next section.
+It prints a pass/fail table and exits non-zero only on clear readiness
+failures. You can probe a specific symbol with `--symbol GBPUSD`. For the
+manual, tool-by-tool acceptance checklist, see the next section.
 
 ## 7. Run the MCP server
 
@@ -152,12 +153,15 @@ will be expanded in the Phase 2 examples PR; the minimal form is:
 }
 ```
 
-See also `examples/claude_desktop_config.example.json` and
-`examples/example_client.py`.
+See also [`examples/claude_desktop_config.example.json`](../examples/claude_desktop_config.example.json),
+[`examples/claude_code_config.example.json`](../examples/claude_code_config.example.json),
+and [`examples/example_client.py`](../examples/example_client.py). For usage
+examples by tool group, see [`EXAMPLES.md`](EXAMPLES.md).
 
 ## If something goes wrong
 
-A dedicated `TROUBLESHOOTING.md` arrives in a later Phase 2 PR. Quick pointers:
+See [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) for a full symptom → cause → fix
+guide. Quick pointers:
 
 - **`MT5NotAvailableError`** — you are not on Windows, or the `MetaTrader5`
   package did not install. Confirm the venv and `pip install -e ".[dev]"`.
