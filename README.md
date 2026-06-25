@@ -117,7 +117,9 @@ examples by tool group, `docs/TROUBLESHOOTING.md` for a symptom → cause → fi
 guide, `docs/SECURITY_MODEL.md` for the canonical safety model (how the approval
 gate and risk guard work, and what is intentionally excluded), and
 `docs/ARCHITECTURE.md` for the module layout and request flow. `docs/SAFETY.md`
-is a short summary that points to `docs/SECURITY_MODEL.md`.
+is a short summary that points to `docs/SECURITY_MODEL.md`. See
+`docs/RELEASE_CHECKLIST.md` for the maintainer checklist used before tagging a
+release.
 
 ## Run the tests
 

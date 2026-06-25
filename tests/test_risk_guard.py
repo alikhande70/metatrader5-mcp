@@ -75,3 +75,11 @@ def test_unknown_trade_mode_message_says_unknown(monkeypatch):
         guard_order_tool({"trade_mode": 99}, "check_order")
     msg = str(exc_info.value)
     assert "unknown" in msg
+
+
+def test_contest_message_mentions_contest(monkeypatch):
+    monkeypatch.setenv("MT5_MCP_ENABLE_DEMO_TRADING", "true")
+    with pytest.raises(RiskGuardError) as exc_info:
+        guard_order_tool({"trade_mode": 1}, "check_order")
+    msg = str(exc_info.value)
+    assert "contest" in msg

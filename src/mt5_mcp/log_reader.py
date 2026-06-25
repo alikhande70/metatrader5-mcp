@@ -16,8 +16,12 @@ from . import mt5_bridge
 # MT5 log files have historically been UTF-16 with a BOM; fall back gracefully.
 _ENCODING_CANDIDATES = ("utf-16", "utf-8", "latin-1")
 
+VALID_LOG_KINDS = frozenset({"terminal", "experts"})
+
 
 def _resolve_log_dir(kind: str = "terminal", log_dir: str | None = None) -> Path:
+    if kind not in VALID_LOG_KINDS:
+        raise ValueError(f"Unknown log kind '{kind}'. Expected one of: {', '.join(sorted(VALID_LOG_KINDS))}.")
     if log_dir:
         return Path(log_dir)
     override = os.environ.get("MT5_MCP_LOG_SOURCE_DIR")

@@ -157,3 +157,46 @@ def test_order_check_never_calls_order_send(fake_mt5):
     assert not hasattr(fake_mt5, "order_send")
     result = mt5_bridge.order_check({"action": fake_mt5.TRADE_ACTION_DEAL, "symbol": "EURUSD"})
     assert result["retcode"] == 0
+
+
+def test_symbol_select_called_before_symbol_info(fake_mt5):
+    calls = []
+    orig_select = fake_mt5.symbol_select
+    orig_info = fake_mt5.symbol_info
+    fake_mt5.symbol_select = lambda symbol, enable: (calls.append("select"), orig_select(symbol, enable))[1]
+    fake_mt5.symbol_info = lambda symbol: (calls.append("info"), orig_info(symbol))[1]
+    mt5_bridge.get_symbol_info("EURUSD")
+    assert calls == ["select", "info"]
+
+
+def test_symbol_select_called_before_tick(fake_mt5):
+    calls = []
+    orig_select = fake_mt5.symbol_select
+    orig_tick = fake_mt5.symbol_info_tick
+    fake_mt5.symbol_select = lambda symbol, enable: (calls.append("select"), orig_select(symbol, enable))[1]
+    fake_mt5.symbol_info_tick = lambda symbol: (calls.append("tick"), orig_tick(symbol))[1]
+    mt5_bridge.get_tick("EURUSD")
+    assert calls == ["select", "tick"]
+
+
+def test_symbol_select_called_before_rates(fake_mt5):
+    calls = []
+    orig_select = fake_mt5.symbol_select
+    orig_rates = fake_mt5.copy_rates_from_pos
+    fake_mt5.symbol_select = lambda symbol, enable: (calls.append("select"), orig_select(symbol, enable))[1]
+    fake_mt5.copy_rates_from_pos = (
+        lambda symbol, timeframe, start_pos, count: (
+            calls.append("rates"),
+            orig_rates(symbol, timeframe, start_pos, count),
+        )[1]
+    )
+    mt5_bridge.get_rates("EURUSD", "H1", count=1)
+    assert calls == ["select", "rates"]
+
+
+def test_get_rates_timeframe_lowercase_and_whitespace(fake_mt5):
+    fake_mt5.rates["EURUSD"] = [
+        {"time": 1700000000, "open": 1.10, "high": 1.11, "low": 1.09, "close": 1.105, "tick_volume": 100},
+    ]
+    rates = mt5_bridge.get_rates("EURUSD", " h1 ", count=1)
+    assert len(rates) == 1
