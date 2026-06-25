@@ -1,0 +1,29 @@
+[project]
+name = "mt5-mcp"
+version = "0.1.0"
+description = "MCP server connecting Claude (or any MCP client) to MetaTrader 5 for safe market data, account inspection, and order planning. Phase 1: no live trading, no order execution."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "mcp[cli]>=1.2.0",
+    "MetaTrader5>=5.0.45; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+]
+
+[project.scripts]
+mt5-mcp = "mt5_mcp.server:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

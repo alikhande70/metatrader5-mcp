@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "metatrader5": {
+      "command": "python",
+      "args": ["-m", "mt5_mcp.server"],
+      "cwd": "C:/path/to/metatrader5-mcp",
+      "env": {
+        "MT5_MCP_APPROVAL_MODE": "console",
+        "MT5_MCP_ENABLE_DEMO_TRADING": "false"
+      }
+    }
+  }
+}
