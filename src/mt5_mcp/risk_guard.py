@@ -40,18 +40,21 @@ def is_live_account(account_info: dict) -> bool:
 def guard_order_tool(account_info: dict, action_name: str) -> None:
     """Raise RiskGuardError unless the account is demo AND demo trading is explicitly enabled."""
     trade_mode = account_info.get("trade_mode")
-    mode_name = _TRADE_MODE_NAMES.get(trade_mode, f"unknown({trade_mode})")
+    mode_name = _TRADE_MODE_NAMES.get(trade_mode, "unknown")
 
     if trade_mode != ACCOUNT_TRADE_MODE_DEMO:
         logger.warning("Risk guard blocked '%s' on a %s account; live trading is never allowed.", action_name, mode_name)
         raise RiskGuardError(
-            f"'{action_name}' is blocked: the connected account is '{mode_name}', not demo. "
-            "Live trading is never allowed in Phase 1."
+            f"'{action_name}' is blocked: the connected account's trade_mode is '{mode_name}' "
+            f"(raw value: {trade_mode!r}), not demo. Real and contest accounts are always blocked "
+            "from order-planning tools, with no override. Live trading is never allowed in Phase 1."
         )
 
     if not is_demo_trading_enabled():
         logger.warning("Risk guard blocked '%s' on a demo account because demo trading is disabled.", action_name)
         raise RiskGuardError(
-            f"'{action_name}' is blocked: demo trading utilities are disabled by default. "
-            "Set MT5_MCP_ENABLE_DEMO_TRADING=true to enable them on a demo account."
+            f"'{action_name}' is blocked: the connected account's trade_mode is 'demo', but demo "
+            "trading utilities are disabled by default. Set MT5_MCP_ENABLE_DEMO_TRADING=true to "
+            "enable order-planning tools on a demo account. Real and contest accounts remain "
+            "always blocked regardless of this setting."
         )

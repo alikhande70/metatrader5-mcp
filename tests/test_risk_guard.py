@@ -48,3 +48,30 @@ def test_contest_account_always_blocked(monkeypatch):
     monkeypatch.setenv("MT5_MCP_ENABLE_DEMO_TRADING", "true")
     with pytest.raises(RiskGuardError):
         guard_order_tool({"trade_mode": 1}, "check_order")
+
+
+def test_real_account_message_mentions_trade_mode_and_no_override(monkeypatch):
+    monkeypatch.setenv("MT5_MCP_ENABLE_DEMO_TRADING", "true")
+    with pytest.raises(RiskGuardError) as exc_info:
+        guard_order_tool({"trade_mode": ACCOUNT_TRADE_MODE_REAL}, "calculate_margin")
+    msg = str(exc_info.value)
+    assert "real" in msg
+    assert "always blocked" in msg
+    assert "no override" in msg
+
+
+def test_demo_disabled_message_mentions_env_var(monkeypatch):
+    monkeypatch.delenv("MT5_MCP_ENABLE_DEMO_TRADING", raising=False)
+    with pytest.raises(RiskGuardError) as exc_info:
+        guard_order_tool({"trade_mode": ACCOUNT_TRADE_MODE_DEMO}, "calculate_margin")
+    msg = str(exc_info.value)
+    assert "MT5_MCP_ENABLE_DEMO_TRADING" in msg
+    assert "demo" in msg
+
+
+def test_unknown_trade_mode_message_says_unknown(monkeypatch):
+    monkeypatch.setenv("MT5_MCP_ENABLE_DEMO_TRADING", "true")
+    with pytest.raises(RiskGuardError) as exc_info:
+        guard_order_tool({"trade_mode": 99}, "check_order")
+    msg = str(exc_info.value)
+    assert "unknown" in msg

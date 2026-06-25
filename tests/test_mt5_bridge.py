@@ -12,6 +12,34 @@ def test_mt5_not_available_raises_clear_error(monkeypatch):
         mt5_bridge._get_mt5()
 
 
+def test_mt5_unavailable_message_explains_non_windows_platform(monkeypatch):
+    monkeypatch.setattr(mt5_bridge.sys, "platform", "linux")
+    msg = mt5_bridge._mt5_unavailable_message()
+    assert "Windows" in msg
+    assert "linux" in msg
+
+
+def test_mt5_unavailable_message_explains_missing_install_on_windows(monkeypatch):
+    monkeypatch.setattr(mt5_bridge.sys, "platform", "win32")
+    msg = mt5_bridge._mt5_unavailable_message()
+    assert "pip install" in msg
+    assert "not installed" in msg
+
+
+def test_connect_failure_message_includes_last_error_and_likely_causes(fake_mt5, monkeypatch):
+    monkeypatch.setattr(fake_mt5, "initialize", lambda *a, **kw: False)
+    fake_mt5._last_error = (10014, "No connection to trade server")
+    with pytest.raises(mt5_bridge.MT5ConnectionError) as exc_info:
+        mt5_bridge.connect(login=123, server="Demo-Server")
+    msg = str(exc_info.value)
+    assert "10014" in msg
+    assert "No connection to trade server" in msg
+    assert "not running" in msg
+    assert "not logged in" in msg
+    assert "login=123" in msg
+    assert "server=Demo-Server" in msg
+
+
 def test_connect_sets_connected_flag(fake_mt5):
     assert mt5_bridge.connect() is True
     assert mt5_bridge.is_connected() is True
@@ -40,10 +68,26 @@ def test_get_symbol_info_unknown_symbol_raises(fake_mt5):
         mt5_bridge.get_symbol_info("DOESNOTEXIST")
 
 
+def test_get_symbol_info_unknown_symbol_message_mentions_symbol_select(fake_mt5):
+    with pytest.raises(mt5_bridge.MT5RequestError) as exc_info:
+        mt5_bridge.get_symbol_info("DOESNOTEXIST")
+    msg = str(exc_info.value)
+    assert "DOESNOTEXIST" in msg
+    assert "symbol_select" in msg
+
+
 def test_get_tick(fake_mt5):
     tick = mt5_bridge.get_tick("EURUSD")
     assert tick["bid"] == 1.1000
     assert tick["ask"] == 1.1002
+
+
+def test_get_tick_unknown_symbol_message_mentions_symbol_select(fake_mt5):
+    with pytest.raises(mt5_bridge.MT5RequestError) as exc_info:
+        mt5_bridge.get_tick("DOESNOTEXIST")
+    msg = str(exc_info.value)
+    assert "DOESNOTEXIST" in msg
+    assert "symbol_select" in msg
 
 
 def test_get_rates_with_plain_dict_rows(fake_mt5):

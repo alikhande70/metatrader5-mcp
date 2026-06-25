@@ -14,6 +14,7 @@ read + planning only; `order_send` is intentionally never called here.
 from __future__ import annotations
 
 import os
+import sys
 from datetime import datetime
 from typing import Any
 
@@ -37,6 +38,22 @@ class MT5RequestError(RuntimeError):
     """Raised when an MT5 API call returns None (the package's error signal)."""
 
 
+def _mt5_unavailable_message() -> str:
+    """Build the MT5NotAvailableError message, tailored to why the import failed."""
+    if sys.platform != "win32":
+        return (
+            f"The MetaTrader5 package is not available on this platform ('{sys.platform}'). "
+            "It only works on Windows, running next to a live MetaTrader 5 terminal. This server "
+            "still starts and lists its tools on other platforms, but every tool that touches MT5 "
+            "will raise this error until it is run on Windows next to the terminal."
+        )
+    return (
+        "The MetaTrader5 package is not installed in this Python environment, even though this "
+        "is Windows. Install it with `pip install MetaTrader5` (or `pip install -e \".[dev]\"` from "
+        "the project root, which pulls it in automatically on win32), then restart the server."
+    )
+
+
 def _get_mt5() -> Any:
     global _mt5_module
     if _mt5_module is not None:
@@ -44,11 +61,7 @@ def _get_mt5() -> Any:
     try:
         import MetaTrader5 as mt5  # type: ignore[import-not-found]
     except ImportError as exc:
-        raise MT5NotAvailableError(
-            "The MetaTrader5 package is not installed or not usable on this platform. "
-            "It requires the MetaTrader 5 terminal and only runs on Windows. "
-            "Install it with `pip install MetaTrader5` on the machine running the terminal."
-        ) from exc
+        raise MT5NotAvailableError(_mt5_unavailable_message()) from exc
     _mt5_module = mt5
     return mt5
 
@@ -58,9 +71,28 @@ def mt5_module() -> Any:
     return _get_mt5()
 
 
-def _raise_last_error(mt5: Any, action: str) -> None:
+def _raise_last_error(mt5: Any, action: str, *, symbol: str | None = None) -> None:
     code, desc = mt5.last_error()
-    raise MT5RequestError(f"{action} failed: ({code}) {desc}")
+    message = f"{action} failed: ({code}) {desc}"
+    if symbol:
+        message += (
+            f" symbol_select('{symbol}', True) was attempted first to make it visible in Market "
+            f"Watch; '{symbol}' may not exist on this broker/server, or may need to be added to "
+            "Market Watch manually in the terminal."
+        )
+    raise MT5RequestError(message)
+
+
+def _connection_error_message(code: int, desc: str, *, path: str | None, login: int | None, server: str | None) -> str:
+    return (
+        f"MetaTrader5.initialize() failed: ({code}) {desc}\n"
+        "Likely causes:\n"
+        "  - the MT5 terminal is not running\n"
+        f"  - MT5_PATH is wrong (path={path or '<unset: attaching to a running terminal>'})\n"
+        f"  - login/server/password is wrong (login={login or '<unset>'}, server={server or '<unset>'})\n"
+        "  - the terminal is running but not logged in to any account\n"
+        "  - the terminal failed to initialize (e.g. still starting up, or AutoTrading disabled)"
+    )
 
 
 def _env_int(name: str) -> int | None:
@@ -100,7 +132,7 @@ def connect(
     ok = mt5.initialize(path, **kwargs) if path else mt5.initialize(**kwargs)
     if not ok:
         code, desc = mt5.last_error()
-        raise MT5ConnectionError(f"MetaTrader5.initialize() failed: ({code}) {desc}")
+        raise MT5ConnectionError(_connection_error_message(code, desc, path=path, login=login, server=server))
 
     _connected = True
     logger.info("Connected to MT5 terminal (login=%s, server=%s)", login or "<default>", server or "<default>")
@@ -154,7 +186,7 @@ def get_symbol_info(symbol: str) -> dict:
     mt5.symbol_select(symbol, True)  # MT5 only returns data for symbols visible in Market Watch
     info = mt5.symbol_info(symbol)
     if info is None:
-        _raise_last_error(mt5, f"symbol_info({symbol})")
+        _raise_last_error(mt5, f"symbol_info({symbol})", symbol=symbol)
     return mt5_struct_to_dict(info)
 
 
@@ -164,7 +196,7 @@ def get_tick(symbol: str) -> dict:
     mt5.symbol_select(symbol, True)
     tick = mt5.symbol_info_tick(symbol)
     if tick is None:
-        _raise_last_error(mt5, f"symbol_info_tick({symbol})")
+        _raise_last_error(mt5, f"symbol_info_tick({symbol})", symbol=symbol)
     return mt5_struct_to_dict(tick)
 
 
@@ -193,7 +225,7 @@ def get_rates(symbol: str, timeframe: str, count: int = 100, start_pos: int = 0)
     mt5.symbol_select(symbol, True)
     rates = mt5.copy_rates_from_pos(symbol, tf_const, start_pos, count)
     if rates is None:
-        _raise_last_error(mt5, f"copy_rates_from_pos({symbol}, {timeframe})")
+        _raise_last_error(mt5, f"copy_rates_from_pos({symbol}, {timeframe})", symbol=symbol)
     return _rates_to_list(rates)
 
 

@@ -57,7 +57,11 @@ def read_log(date: str | None = None, lines: int = 200, kind: str = "terminal", 
 
     if not file_path.exists():
         available = list_available_logs(kind, log_dir)
-        raise FileNotFoundError(f"Log file not found: {file_path}. Available dates: {available[-10:]}")
+        hint = f"Available dates: {available[-10:]}" if available else "No log files found in this directory."
+        raise FileNotFoundError(
+            f"Log file not found: {file_path}. Looked in log directory '{directory}' for "
+            f"kind='{kind}' logs. {hint}"
+        )
 
     all_lines = _read_text(file_path).splitlines()
     tail = all_lines[-lines:] if lines > 0 else all_lines

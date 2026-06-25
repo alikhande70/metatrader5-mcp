@@ -24,6 +24,28 @@ def test_read_log_missing_file_raises(tmp_path):
         log_reader.read_log(date="19990101", log_dir=str(log_dir))
 
 
+def test_read_log_missing_file_message_mentions_directory_and_kind(tmp_path):
+    log_dir = tmp_path / "Logs"
+    log_dir.mkdir()
+    (log_dir / "20240101.log").write_text("a", encoding="utf-8")
+
+    with pytest.raises(FileNotFoundError) as exc_info:
+        log_reader.read_log(date="19990101", kind="terminal", log_dir=str(log_dir))
+    msg = str(exc_info.value)
+    assert str(log_dir) in msg
+    assert "terminal" in msg
+    assert "20240101" in msg
+
+
+def test_read_log_missing_file_message_with_no_logs_present(tmp_path):
+    log_dir = tmp_path / "Logs"
+    log_dir.mkdir()
+    with pytest.raises(FileNotFoundError) as exc_info:
+        log_reader.read_log(date="19990101", log_dir=str(log_dir))
+    msg = str(exc_info.value)
+    assert "No log files found" in msg
+
+
 def test_list_available_logs(tmp_path):
     log_dir = tmp_path / "Logs"
     log_dir.mkdir()
