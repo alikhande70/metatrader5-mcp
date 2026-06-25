@@ -25,6 +25,9 @@ The two names below differ intentionally:
   will raise a clear `MT5NotAvailableError`.
 - Python 3.10+
 
+> **New to this on Windows?** Follow `docs/QUICKSTART_WINDOWS.md` for a
+> step-by-step setup, first tool calls, and a smoke-test checklist.
+
 ## Install
 
 ```bash
@@ -98,9 +101,11 @@ still requires a demo account with `MT5_MCP_ENABLE_DEMO_TRADING=true`):
 router refuses them by name as a safety net): sending, modifying, or
 cancelling any order; live trading in general.
 
-See `docs/TOOLS.md` for full parameter reference, `docs/SAFETY.md` for how
-the approval gate and risk guard work, and `docs/ARCHITECTURE.md` for the
-module layout and request flow.
+See `docs/TOOLS.md` for full parameter reference, `docs/SECURITY_MODEL.md` for
+the canonical safety model (how the approval gate and risk guard work, and what
+is intentionally excluded), and `docs/ARCHITECTURE.md` for the module layout and
+request flow. `docs/SAFETY.md` is a short summary that points to
+`docs/SECURITY_MODEL.md`.
 
 ## Run the tests
 
