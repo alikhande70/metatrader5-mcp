@@ -79,7 +79,18 @@ Desktop / Claude Code config:
 ```
 
 See `examples/example_client.py` for a minimal standalone client that lists
-tools and calls a couple of them.
+tools and calls one tool per permission tier (read, analysis, and a
+planning-only call that is never sent). `examples/claude_desktop_config.example.json`
+and `examples/claude_code_config.example.json` show client wiring with the
+venv's `python.exe` and an absolute `cwd`. `docs/EXAMPLES.md` walks through
+usage by tool group.
+
+Before pointing a client at the server, you can run the read-only readiness
+helper to confirm your environment (it never plans or sends orders):
+
+```bash
+python scripts/mt5_readiness_check.py
+```
 
 ## What's implemented
 
@@ -101,11 +112,12 @@ still requires a demo account with `MT5_MCP_ENABLE_DEMO_TRADING=true`):
 router refuses them by name as a safety net): sending, modifying, or
 cancelling any order; live trading in general.
 
-See `docs/TOOLS.md` for full parameter reference, `docs/SECURITY_MODEL.md` for
-the canonical safety model (how the approval gate and risk guard work, and what
-is intentionally excluded), and `docs/ARCHITECTURE.md` for the module layout and
-request flow. `docs/SAFETY.md` is a short summary that points to
-`docs/SECURITY_MODEL.md`.
+See `docs/TOOLS.md` for full parameter reference, `docs/EXAMPLES.md` for usage
+examples by tool group, `docs/TROUBLESHOOTING.md` for a symptom → cause → fix
+guide, `docs/SECURITY_MODEL.md` for the canonical safety model (how the approval
+gate and risk guard work, and what is intentionally excluded), and
+`docs/ARCHITECTURE.md` for the module layout and request flow. `docs/SAFETY.md`
+is a short summary that points to `docs/SECURITY_MODEL.md`.
 
 ## Run the tests
 
