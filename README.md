@@ -1,1 +1,1 @@
-# metatrader5-mcp
+metatrader5-mcp init
