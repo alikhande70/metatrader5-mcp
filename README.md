@@ -9,6 +9,14 @@ plan assembly). **No tool in this server sends, modifies, or cancels an order,
 and live trading is always blocked.** This is a read/analysis/planning
 foundation, not a trading bot.
 
+## Naming
+
+The two names below differ intentionally:
+
+- **Repository / project identity:** `metatrader5-mcp`
+- **Installable package / command:** `mt5-mcp` (the Python import package is
+  `mt5_mcp`, and `pip install -e .` also exposes an `mt5-mcp` console command)
+
 ## Requirements
 
 - Windows, with a running MetaTrader 5 terminal (the `MetaTrader5` Python
