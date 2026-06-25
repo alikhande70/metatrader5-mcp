@@ -135,3 +135,21 @@ def test_default_reports_dir_used_when_env_unset(tmp_path, monkeypatch):
 
     result = report_reader.read_strategy_report("report.html")
     assert result["summary"]["Total Trades"] == "500"
+
+
+def test_symlink_escaping_reports_dir_is_rejected(tmp_path, monkeypatch):
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    monkeypatch.setenv("MT5_MCP_REPORTS_DIR", str(reports_dir))
+
+    secret = tmp_path / "secret.html"
+    secret.write_text("<html>secret</html>", encoding="utf-8")
+
+    link = reports_dir / "escape.html"
+    try:
+        link.symlink_to(secret)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks not supported on this platform/filesystem")
+
+    with pytest.raises(ReportPathError):
+        report_reader.read_strategy_report("escape.html")

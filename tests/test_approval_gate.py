@@ -72,3 +72,12 @@ def test_no_auto_approval_mode_exists():
     for mode in ["auto", "always", "yes", "skip", "none"]:
         with pytest.raises(ValueError):
             get_approval_gate(mode)
+
+
+def test_stray_pending_file_does_not_satisfy_approval(tmp_path, monkeypatch):
+    """A pending_<id>.json by itself (no approved/denied file) must never count as approved."""
+    monkeypatch.setattr(approval_gate, "APPROVALS_DIR", tmp_path)
+    gate = FileApprovalGate(poll_interval_s=0.01, timeout_s=0.05)
+    (tmp_path / "pending_a6.json").write_text('{"stray": true}', encoding="utf-8")
+    approved = gate.request_approval("a6", "check_order", "desc", {})
+    assert approved is False

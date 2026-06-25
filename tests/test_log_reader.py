@@ -65,3 +65,60 @@ def test_experts_kind_uses_different_subdir(fake_mt5, monkeypatch):
     monkeypatch.delenv("MT5_MCP_LOG_SOURCE_DIR", raising=False)
     log_dir = log_reader._resolve_log_dir(kind="experts")
     assert str(log_dir).endswith("MQL5/Logs") or str(log_dir).endswith("MQL5\\Logs")
+
+
+def test_read_log_kind_terminal_explicit(tmp_path):
+    log_dir = tmp_path / "Logs"
+    log_dir.mkdir()
+    (log_dir / "20240101.log").write_text("hello", encoding="utf-8")
+
+    result = log_reader.read_log(date="20240101", kind="terminal", log_dir=str(log_dir))
+    assert result["kind"] == "terminal"
+    assert result["lines"] == ["hello"]
+
+
+def test_read_log_kind_experts_reads_file(tmp_path):
+    log_dir = tmp_path / "MQL5" / "Logs"
+    log_dir.mkdir(parents=True)
+    (log_dir / "20240101.log").write_text("expert line", encoding="utf-8")
+
+    result = log_reader.read_log(date="20240101", kind="experts", log_dir=str(log_dir))
+    assert result["kind"] == "experts"
+    assert result["lines"] == ["expert line"]
+
+
+def test_read_log_invalid_kind_is_rejected(tmp_path):
+    log_dir = tmp_path / "Logs"
+    log_dir.mkdir()
+    (log_dir / "20240101.log").write_text("hello", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        log_reader.read_log(date="20240101", kind="not_a_real_kind", log_dir=str(log_dir))
+
+
+def test_invalid_kind_message_lists_valid_kinds():
+    with pytest.raises(ValueError) as exc_info:
+        log_reader._resolve_log_dir(kind="bogus", log_dir="/irrelevant")
+    msg = str(exc_info.value)
+    assert "terminal" in msg
+    assert "experts" in msg
+    assert "bogus" in msg
+
+
+def test_read_log_decodes_utf16(tmp_path):
+    log_dir = tmp_path / "Logs"
+    log_dir.mkdir()
+    content = "line one\nline two"
+    (log_dir / "20240101.log").write_bytes(content.encode("utf-16"))
+
+    result = log_reader.read_log(date="20240101", log_dir=str(log_dir))
+    assert result["lines"] == ["line one", "line two"]
+
+
+def test_read_log_decodes_utf8(tmp_path):
+    log_dir = tmp_path / "Logs"
+    log_dir.mkdir()
+    (log_dir / "20240101.log").write_text("café line", encoding="utf-8")
+
+    result = log_reader.read_log(date="20240101", log_dir=str(log_dir))
+    assert result["lines"] == ["café line"]
