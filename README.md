@@ -1,1 +1,1 @@
-metatrader5-mcp init
+init
