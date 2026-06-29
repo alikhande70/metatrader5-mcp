@@ -298,7 +298,8 @@ _ALL: list[ToolPolicy] = [
     _file_change("workspace_restore_snapshot", "workspace", risk=RiskLevel.HIGH),
     # ----- Code reads / drafts (Level 0/1) -----
     _safe_read("mql5_file_read", "code", touches_filesystem=True),
-    _safe_read("mql5_code_review", "code", touches_filesystem=True),
+    # code_review only reads + analyses (never mutates); it is a pure draft/analysis tool.
+    _code_draft("mql5_code_review", "code", touches_filesystem=True),
     _code_draft("mql5_file_diff", "code", touches_filesystem=True),
     _code_draft("mql5_file_write_draft", "code", touches_filesystem=True),
     _code_draft("mql5_file_backup", "code", touches_filesystem=True),
