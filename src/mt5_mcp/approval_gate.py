@@ -35,8 +35,14 @@ class ApprovalGate(ABC):
         action_name: str,
         description: str,
         params: dict[str, Any],
+        *,
+        require_double: bool = False,
     ) -> bool:
-        """Return True only if a human explicitly approved this action."""
+        """Return True only if a human explicitly approved this action.
+
+        When ``require_double`` is set, the human must confirm twice (the second
+        confirmation an explicit, deliberate step) before this returns True.
+        """
 
 
 class ConsoleApprovalGate(ApprovalGate):
@@ -48,6 +54,8 @@ class ConsoleApprovalGate(ApprovalGate):
         action_name: str,
         description: str,
         params: dict[str, Any],
+        *,
+        require_double: bool = False,
     ) -> bool:
         if not sys.stdin.isatty():
             logger.warning(
@@ -63,7 +71,15 @@ class ConsoleApprovalGate(ApprovalGate):
         print(f"details   : {description}", file=sys.stderr)
         print(f"params    : {json.dumps(params, default=str)}", file=sys.stderr)
         answer = input("Approve this action? [yes/no]: ").strip().lower()
-        return answer in {"y", "yes"}
+        if answer not in {"y", "yes"}:
+            return False
+        if require_double:
+            print("This is a HIGH-RISK action and requires a second confirmation.", file=sys.stderr)
+            confirm = input(f"Type the action name '{action_name}' to confirm: ").strip()
+            if confirm != action_name:
+                logger.warning("Double confirmation for %s (%s) failed; denying.", action_name, action_id)
+                return False
+        return True
 
 
 class FileApprovalGate(ApprovalGate):
@@ -79,11 +95,26 @@ class FileApprovalGate(ApprovalGate):
         action_name: str,
         description: str,
         params: dict[str, Any],
+        *,
+        require_double: bool = False,
     ) -> bool:
         APPROVALS_DIR.mkdir(parents=True, exist_ok=True)
         pending_path = APPROVALS_DIR / f"pending_{action_id}.json"
         approved_path = APPROVALS_DIR / f"approved_{action_id}.txt"
+        approved2_path = APPROVALS_DIR / f"approved2_{action_id}.txt"
         denied_path = APPROVALS_DIR / f"denied_{action_id}.txt"
+
+        if require_double:
+            instructions = (
+                f"HIGH-RISK action: to approve, create BOTH '{approved_path.name}' and "
+                f"'{approved2_path.name}' in this directory. To deny, create '{denied_path.name}' "
+                "(or just let this request time out)."
+            )
+        else:
+            instructions = (
+                f"To approve, create '{approved_path.name}' in this directory. "
+                f"To deny, create '{denied_path.name}' (or just let this request time out)."
+            )
 
         pending_path.write_text(
             json.dumps(
@@ -92,11 +123,9 @@ class FileApprovalGate(ApprovalGate):
                     "action": action_name,
                     "description": description,
                     "params": params,
+                    "requires_double_confirmation": require_double,
                     "requested_at": utcnow_iso(),
-                    "instructions": (
-                        f"To approve, create '{approved_path.name}' in this directory. "
-                        f"To deny, create '{denied_path.name}' (or just let this request time out)."
-                    ),
+                    "instructions": instructions,
                 },
                 indent=2,
                 default=str,
@@ -108,12 +137,12 @@ class FileApprovalGate(ApprovalGate):
         deadline = time.monotonic() + self.timeout_s
         try:
             while time.monotonic() < deadline:
-                if approved_path.exists():
-                    logger.info("Approval granted via %s", approved_path)
-                    return True
                 if denied_path.exists():
                     logger.info("Approval denied via %s", denied_path)
                     return False
+                if approved_path.exists() and (not require_double or approved2_path.exists()):
+                    logger.info("Approval granted via %s%s", approved_path, " (+double)" if require_double else "")
+                    return True
                 time.sleep(self.poll_interval_s)
         finally:
             pending_path.unlink(missing_ok=True)

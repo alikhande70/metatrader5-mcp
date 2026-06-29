@@ -13,8 +13,8 @@ class StubApprovalGate(ApprovalGate):
         self.approve = approve
         self.calls: list[dict] = []
 
-    def request_approval(self, action_id, action_name, description, params):
-        self.calls.append({"action_id": action_id, "action_name": action_name})
+    def request_approval(self, action_id, action_name, description, params, *, require_double=False):
+        self.calls.append({"action_id": action_id, "action_name": action_name, "require_double": require_double})
         return self.approve
 
 
@@ -55,6 +55,20 @@ def test_requires_approval_denied_raises_and_skips_executor():
 def test_requires_approval_without_gate_configured_raises():
     with pytest.raises(action_router.ApprovalDeniedError):
         action_router.dispatch("calculate_margin", lambda: "never", {})
+
+
+def test_disabled_tool_is_blocked():
+    # Level 4/5 tools are declared in the policy manifest but disabled by default.
+    with pytest.raises(action_router.BlockedActionError):
+        action_router.dispatch("mt5_chart_attach_ea", lambda: "never", {})
+    with pytest.raises(action_router.BlockedActionError):
+        action_router.dispatch("mt5_live_enable_autotrade_request", lambda: "never", {})
+
+
+def test_file_change_requires_single_confirmation_not_double():
+    gate = StubApprovalGate(approve=True)
+    action_router.dispatch("mql5_file_update", lambda: "ok", {"path": "x.mq5"}, approval_gate=gate)
+    assert gate.calls[0]["require_double"] is False
 
 
 def test_action_request_and_decision_are_logged(tmp_path, monkeypatch):

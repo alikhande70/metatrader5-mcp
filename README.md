@@ -3,11 +3,17 @@
 A local MCP (Model Context Protocol) server that connects Claude (or any MCP
 client) to a running MetaTrader 5 terminal.
 
-**Phase 1 scope only:** read-only market/account data, basic performance
-analysis, and order *planning* (margin/profit calculations, order validation,
-plan assembly). **No tool in this server sends, modifies, or cancels an order,
-and live trading is always blocked.** This is a read/analysis/planning
-foundation, not a trading bot.
+A **user-directed bridge** between you, Claude, and MetaTrader 5. You can ask for
+read-only market/account data, performance analysis, MQL5 development (read /
+draft / diff / backup / approved file changes), compile and backtest preparation,
+and report review. The design principle is **user authority broad, model autonomy
+narrow**: every tool is governed by a `ToolPolicy` (permission level 0–5), the
+model never auto-initiates a risky action, and file/runtime changes require
+explicit human approval with a diff, a backup, a rollback point, and an audit
+entry. **No tool sends, modifies, or cancels an order; live trading is never
+implemented.** Chart/EA-runtime and live-account tools are declared in the policy
+model but disabled by default. This is a tool-rich development bridge, not a
+trading bot.
 
 ## Naming
 
@@ -54,7 +60,11 @@ Key settings:
 | `MT5_MCP_APPROVAL_MODE` | `console` | `console` (type yes/no in the server's terminal) or `file` (approve via `approvals/approved_<id>.txt`). |
 | `MT5_MCP_ENABLE_DEMO_TRADING` | `false` | Order-planning tools are disabled even on a demo account unless this is `true`. Real/contest accounts are **always** blocked regardless of this flag. |
 | `MT5_MCP_LOG_DIR` | `logs` | Where `mt5_mcp.log` and `actions.log` are written. |
-| `MT5_MCP_REPORTS_DIR` | `reports/` (under the runtime dir) | Directory that `read_strategy_report` is confined to. Only `.html`/`.htm` files inside it are readable; absolute paths and `..` traversal that escape it are rejected. |
+| `MT5_MCP_REPORTS_DIR` | `reports/` (under the runtime dir) | Directory that `read_strategy_report` / `tester_import_csv` are confined to (`.html`/`.htm`/`.csv`). Absolute paths and `..` traversal that escape it are rejected. |
+| `MT5_MCP_WORKSPACE_DIR` | `workspace/` | MQL5 source root the file/code tools are confined to. Point at the terminal's `MQL5` data folder. |
+| `MT5_MCP_BACKUPS_DIR` | `backups/` | Where file mutations write backups + rollback metadata, and where snapshots go. |
+| `MT5_MCP_DRAFTS_DIR` | `drafts/` | Where `mql5_file_write_draft` writes drafts (never the real source). |
+| `METAEDITOR_PATH` | unset | Full path to `metaeditor64.exe` for the compile tools (Windows only; off-Windows they return `UNSUPPORTED_IN_THIS_ENVIRONMENT`). |
 
 ## Run the server locally
 
@@ -107,6 +117,25 @@ needed): `summarize_positions`, `analyze_drawdown`, `analyze_trade_history`,
 dry-run `order_check`; a human must approve every call, and the risk guard
 still requires a demo account with `MT5_MCP_ENABLE_DEMO_TRADING=true`):
 `calculate_margin`, `calculate_profit`, `check_order`, `prepare_order_plan`.
+
+**Bridge tools** (governed by `ToolPolicy`; see `list_tool_policies`):
+- *Workspace/code, Level 0/1* — workspace status & listing, `mql5_file_read`,
+  `mql5_file_diff`, `mql5_file_write_draft`, `mql5_file_backup`, `mql5_code_review`,
+  `mql5_code_generate_ea/indicator/script`, `mql5_code_fix_compile_error`. No
+  approval; never mutate a real source file.
+- *File mutations, Level 2* — `mql5_file_create/update/apply_patch/rename/delete/
+  restore/revert_patch`, `workspace_restore_snapshot`. **Approval required**, with
+  backup + diff + rollback id.
+- *MetaEditor/Tester, Level 0/1 + gated Level 3* — `metaeditor_prepare_compile`,
+  `metaeditor_parse_errors/warnings`, `metaeditor_generate_fix_plan`,
+  `tester_prepare_signal_only_test`, `tester_import_csv`, `tester_review_results`,
+  `tester_compare_runs`, `tester_generate_backtest_report`; plus the gated
+  `metaeditor_run_compile` / `tester_run_backtest_if_supported` (Windows only).
+- *Audit/introspection, Level 0* — `list_tool_policies`, `get_tool_policy`,
+  `read_audit_log`.
+
+**Declared but disabled (Level 4/5)** — `mt5_chart_*`, `mt5_ea_*`, `mt5_live_*`
+are in the policy model but not registered as tools in this phase.
 
 **BLOCKED** (not implemented at all - no tool by these names exists, and the
 router refuses them by name as a safety net): sending, modifying, or

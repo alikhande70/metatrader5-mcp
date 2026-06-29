@@ -1,11 +1,19 @@
-"""Action classification: every tool name maps to exactly one permission category.
+"""Action classification, derived from the policy manifest in policy.py.
 
-Unknown action names are treated as BLOCKED (fail closed), never as SAFE.
+`ActionCategory` is kept as the coarse signal `action_router` has always used
+(SAFE / approval / blocked), but it is now *derived* from `policy.POLICIES` so there
+is a single source of truth. The richer per-tool capability flags live on
+`ToolPolicy`; this module only answers "does this need approval, or is it blocked?".
+
+Fail-closed: an unknown name, a name with no policy, a disabled tool, or anything
+carrying a forbidden capability all classify as BLOCKED.
 """
 
 from __future__ import annotations
 
 from enum import Enum
+
+from .policy import POLICIES, get_policy
 
 
 class ActionCategory(str, Enum):
@@ -15,45 +23,8 @@ class ActionCategory(str, Enum):
     BLOCKED = "BLOCKED"
 
 
-SAFE_READ: frozenset[str] = frozenset(
-    {
-        "get_account_info",
-        "get_terminal_info",
-        "get_symbol_info",
-        "get_tick",
-        "get_rates",
-        "get_positions",
-        "get_orders",
-        "get_history_deals",
-        "read_log",
-        "read_strategy_report",
-    }
-)
-
-SAFE_ANALYSIS: frozenset[str] = frozenset(
-    {
-        "summarize_positions",
-        "analyze_drawdown",
-        "analyze_trade_history",
-        "calculate_profit_risk_basic",
-    }
-)
-
-# Order-planning tools. They never call order_send, but they are the closest
-# thing to "real trading" in Phase 1 (they touch margin/risk numbers and build
-# an order request), so a human must approve each call.
-REQUIRES_APPROVAL: frozenset[str] = frozenset(
-    {
-        "calculate_margin",
-        "calculate_profit",
-        "check_order",
-        "prepare_order_plan",
-    }
-)
-
-# No Phase 1 tool implements any of these - this list is a defense-in-depth
-# safety net so the router refuses them by name on sight, even if a future
-# change accidentally wires one up.
+# Explicit execution names. No tool implements these; they are listed so the router
+# refuses them on sight (defense in depth) even if a future change wires one up.
 BLOCKED: frozenset[str] = frozenset(
     {
         "send_order",
@@ -65,17 +36,33 @@ BLOCKED: frozenset[str] = frozenset(
         "close_order",
         "execute_trade",
         "live_trade",
+        "order_send",
     }
 )
 
-_CATEGORY_BY_ACTION: dict[str, ActionCategory] = {
-    **{name: ActionCategory.SAFE_READ for name in SAFE_READ},
-    **{name: ActionCategory.SAFE_ANALYSIS for name in SAFE_ANALYSIS},
-    **{name: ActionCategory.REQUIRES_APPROVAL for name in REQUIRES_APPROVAL},
-    **{name: ActionCategory.BLOCKED for name in BLOCKED},
-}
-
 
 def classify(action_name: str) -> ActionCategory:
-    """Classify an action name, defaulting unknown actions to BLOCKED."""
-    return _CATEGORY_BY_ACTION.get(action_name, ActionCategory.BLOCKED)
+    """Classify an action name, defaulting unknown/disabled/forbidden actions to BLOCKED."""
+    if action_name in BLOCKED:
+        return ActionCategory.BLOCKED
+
+    policy = get_policy(action_name)
+    if policy is None or not policy.enabled_by_default or policy.has_forbidden_capability:
+        return ActionCategory.BLOCKED
+
+    if policy.requires_approval:
+        return ActionCategory.REQUIRES_APPROVAL
+    if policy.category == "analysis":
+        return ActionCategory.SAFE_ANALYSIS
+    return ActionCategory.SAFE_READ
+
+
+def _names_in(category: ActionCategory) -> frozenset[str]:
+    return frozenset(name for name in POLICIES if classify(name) is category)
+
+
+# Derived category sets (single source of truth = the policy manifest). Kept as
+# module-level frozensets for the safety tests and docs that introspect them.
+SAFE_READ: frozenset[str] = _names_in(ActionCategory.SAFE_READ)
+SAFE_ANALYSIS: frozenset[str] = _names_in(ActionCategory.SAFE_ANALYSIS)
+REQUIRES_APPROVAL: frozenset[str] = _names_in(ActionCategory.REQUIRES_APPROVAL)

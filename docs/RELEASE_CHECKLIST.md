@@ -39,16 +39,17 @@ pytest
 - [ ] Record the test count from the `pytest` summary line in the release
       notes (see template below).
 
-## 4. MCP tool count check
+## 4. Policy / tool surface check
 
-The server must register **exactly 18** tools (10 `SAFE_READ` + 4
-`SAFE_ANALYSIS` + 4 `REQUIRES_APPROVAL`). This is asserted by
-`tests/test_safety_invariants.py::test_mcp_tool_count_is_exactly_18` and
-`tests/test_server.py::test_all_expected_tools_are_registered`, but confirm it
-directly too:
+Every registered tool must have an **enabled** policy in `policy.py`, no policy
+may carry a forbidden capability, and Level 4/5 tools must stay disabled and
+unregistered. This is asserted by `tests/test_safety_invariants.py` (policy-driven
+invariants) and `tests/test_policy.py`. Confirm the surface directly too:
 
 ```bash
 grep -c "@mcp.tool()" src/mt5_mcp/server.py
+python -c "from mt5_mcp.server import mcp; from mt5_mcp.policy import get_policy; \
+print(all(get_policy(t.name) for t in mcp._tool_manager.list_tools()))"
 ```
 
 - [ ] Output is `18`.

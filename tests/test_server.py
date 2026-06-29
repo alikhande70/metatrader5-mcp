@@ -17,9 +17,17 @@ def _registered_tool_names() -> set[str]:
     return {tool.name for tool in mcp._tool_manager.list_tools()}
 
 
-def test_all_expected_tools_are_registered():
+def test_core_phase1_tools_are_still_registered():
     names = _registered_tool_names()
-    assert names == EXPECTED_SAFE_READ | EXPECTED_SAFE_ANALYSIS | EXPECTED_REQUIRES_APPROVAL
+    expected = EXPECTED_SAFE_READ | EXPECTED_SAFE_ANALYSIS | EXPECTED_REQUIRES_APPROVAL
+    assert expected <= names, f"missing core tools: {expected - names}"
+
+
+def test_new_bridge_tools_are_registered():
+    names = _registered_tool_names()
+    for name in ("list_tool_policies", "mql5_file_read", "mql5_file_apply_patch",
+                 "metaeditor_parse_errors", "tester_import_csv", "workspace_show_status"):
+        assert name in names
 
 
 def test_every_registered_tool_has_a_non_blocked_classification():
