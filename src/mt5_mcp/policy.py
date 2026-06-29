@@ -367,6 +367,19 @@ def with_overrides(name: str, **overrides: object) -> ToolPolicy:
 # be imported, let alone shipped.
 
 def _check_invariants() -> None:
+    """Enforce the risk/mutation-based rules of the capability model.
+
+    Rules (deliberately NOT "non-initiable => confirmation"; safe Level 0 reads and
+    pure Level 1 drafts/analysis may be model-initiated and approval-free):
+
+      - No policy may carry a forbidden capability (order/autotrade/credentials).
+      - The user may always request any tool.
+      - Level >= FILE_CHANGE (any mutation/runtime/chart/live): NOT model-initiable
+        and must require confirmation.
+      - Level >= CHART_RUNTIME: must require double confirmation.
+      - Level == LIVE_SENSITIVE: must be disabled by default.
+      - A source-file mutation (FILE_CHANGE) must require backup + diff + rollback + audit.
+    """
     for p in _ALL:
         if p.has_forbidden_capability:
             raise AssertionError(
@@ -375,17 +388,15 @@ def _check_invariants() -> None:
             )
         if not p.user_can_request:
             raise AssertionError(f"Policy '{p.name}' has user_can_request=False; the user may always request tools.")
-        if not p.model_can_initiate and not p.requires_approval:
-            raise AssertionError(
-                f"Policy '{p.name}' is not model-initiable but requires no approval; "
-                "non-autonomous tools must be approval-gated."
-            )
-        if p.level >= PermissionLevel.LOCAL_RUNTIME and p.model_can_initiate:
-            raise AssertionError(f"Policy '{p.name}' (level {p.level}) must not be model-initiable.")
+        if p.level >= PermissionLevel.FILE_CHANGE:
+            if p.model_can_initiate:
+                raise AssertionError(f"Policy '{p.name}' (level {p.level.name}) must not be model-initiable.")
+            if not p.requires_confirmation:
+                raise AssertionError(f"Policy '{p.name}' (level {p.level.name}) must require confirmation.")
         if p.level >= PermissionLevel.CHART_RUNTIME and not p.requires_double_confirmation:
-            raise AssertionError(f"Policy '{p.name}' (level {p.level}) must require double confirmation.")
-        if p.level >= PermissionLevel.CHART_RUNTIME and p.enabled_by_default:
-            raise AssertionError(f"Policy '{p.name}' (level {p.level}) must be disabled by default.")
+            raise AssertionError(f"Policy '{p.name}' (level {p.level.name}) must require double confirmation.")
+        if p.level == PermissionLevel.LIVE_SENSITIVE and p.enabled_by_default:
+            raise AssertionError(f"Policy '{p.name}' (LIVE_SENSITIVE) must be disabled by default.")
         if p.level == PermissionLevel.FILE_CHANGE and not (
             p.requires_backup and p.requires_diff_preview and p.requires_rollback_point and p.requires_audit_log
         ):

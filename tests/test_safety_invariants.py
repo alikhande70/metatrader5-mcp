@@ -52,10 +52,23 @@ def test_user_can_always_request_every_tool():
     assert all(p.user_can_request for p in POLICIES.values())
 
 
-def test_runtime_and_above_are_never_model_initiable():
+def test_file_change_and_above_are_never_model_initiable():
     for policy in POLICIES.values():
-        if policy.level >= PermissionLevel.LOCAL_RUNTIME:
+        if policy.level >= PermissionLevel.FILE_CHANGE:
             assert not policy.model_can_initiate, f"{policy.name} must not be model-initiable"
+            assert policy.requires_confirmation, f"{policy.name} must require confirmation"
+
+
+def test_safe_read_and_pure_draft_tools_may_be_model_initiable_without_approval():
+    # Correction: Level 0 reads and pure Level 1 draft/analysis tools are model-initiable
+    # and approval-free. (Reads may touch account/orders in a read-only way; what they must
+    # NOT do is mutate sources, run MetaEditor, touch live charts, or store credentials.)
+    for policy in POLICIES.values():
+        if policy.level <= PermissionLevel.CODE_DRAFT and policy.model_can_initiate:
+            assert not policy.requires_approval, f"{policy.name} should not require approval"
+            assert not policy.has_forbidden_capability
+            assert not policy.touches_live_chart
+            assert not policy.touches_metaeditor, f"{policy.name} must not run MetaEditor at draft level"
 
 
 def test_chart_and_live_tools_are_disabled_by_default():
