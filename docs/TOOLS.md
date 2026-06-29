@@ -41,6 +41,83 @@ requires a demo account with `MT5_MCP_ENABLE_DEMO_TRADING=true`.
 `order_type` accepts MT5's order type names: `BUY`, `SELL`, `BUY_LIMIT`,
 `SELL_LIMIT`, `BUY_STOP`, `SELL_STOP`.
 
+## Bridge: introspection & audit (Level 0)
+
+| Tool | Parameters | Returns |
+|---|---|---|
+| `list_tool_policies` | - | Every tool with its level, risk, and gating flags. |
+| `get_tool_policy` | `name: str` | The full `ToolPolicy` for one tool (all capability fields). |
+| `read_audit_log` | `lines: int = 100` | Tail of `logs/actions.log` as parsed JSON events. |
+
+## Bridge: MQL5 workspace (Level 0; restore is Level 2)
+
+All paths are confined to `MT5_MCP_WORKSPACE_DIR` (default `workspace/`).
+
+| Tool | Parameters | Returns |
+|---|---|---|
+| `workspace_show_status` | - | Root, existence, and source counts per kind. |
+| `workspace_detect_data_folder` | - | Configured workspace root (auto-detect needs Windows + MT5). |
+| `workspace_list_experts` / `_indicators` / `_scripts` / `_includes` | - | Relative source paths. |
+| `workspace_snapshot` | `label: str | None` | Zip snapshot under the backups dir (safe; no source change). |
+| `workspace_restore_snapshot` | `archive: str`, `overwrite: bool = True` | Restores a snapshot zip. **Approval required.** |
+
+## Bridge: MQL5 code — read / draft (Level 0/1, no source mutation)
+
+| Tool | Parameters | Returns |
+|---|---|---|
+| `mql5_file_read` | `path: str` | File content + sha256 + line count. |
+| `mql5_file_diff` | `path: str`, `new_content: str` | Unified diff vs the current file (no write). |
+| `mql5_file_write_draft` | `path: str`, `content: str` | Writes to the drafts dir + diff vs source. |
+| `mql5_file_backup` | `path: str` | Copies the source into the backups dir. |
+| `mql5_code_review` | `path: str` | Static heuristics: entry points, risk flags, findings. |
+| `mql5_code_generate_ea` | `name`, `magic: int = 0`, `author` | EA draft code + suggested path. |
+| `mql5_code_generate_indicator` / `_script` | `name`, `author` | Indicator/script draft code. |
+| `mql5_code_fix_compile_error` | `errors: list[dict]`, `source_path: str | None` | A human-reviewable fix plan (no code change). |
+
+## Bridge: MQL5 file mutations (Level 2 — approval + backup + diff + rollback)
+
+Each returns a diff, a `backup_path`, and a `rollback_id` (undo via
+`mql5_file_revert_patch`). **A human must approve every call.**
+
+| Tool | Parameters |
+|---|---|
+| `mql5_file_create` | `path`, `content` |
+| `mql5_file_update` | `path`, `content` |
+| `mql5_file_apply_patch` | `path`, `find`, `replace`, `count: int = 0` |
+| `mql5_file_rename` | `path`, `new_path` |
+| `mql5_file_delete` | `path` |
+| `mql5_file_restore` | `path`, `backup_path` |
+| `mql5_file_revert_patch` | `rollback_id` |
+
+## Bridge: MetaEditor adapters (Level 0/1; `run_compile` Level 3)
+
+| Tool | Parameters | Returns |
+|---|---|---|
+| `metaeditor_detect_path` | - | Locates `metaeditor64.exe` (Windows only). |
+| `metaeditor_prepare_compile` | `source_path`, `include_path: str | None` | The `/compile` command line (no execution). |
+| `metaeditor_run_compile` | `source_path`, `include_path`, `timeout_s: int = 120` | Compiles (Windows only; else `UNSUPPORTED_IN_THIS_ENVIRONMENT`). **Approval required.** |
+| `metaeditor_read_compile_log` | `path` | Reads a `.log` from the workspace. |
+| `metaeditor_parse_errors` / `_warnings` | `log_text: str` | Parsed `{file, line, column, code, message}` entries. |
+| `metaeditor_generate_fix_plan` | `log_text`, `source_path` | Fix plan from parsed errors. |
+
+## Bridge: Strategy Tester adapters (Level 0/1; `run_backtest` Level 3)
+
+| Tool | Parameters | Returns |
+|---|---|---|
+| `tester_prepare_signal_only_test` | `expert`, `symbol`, `timeframe`, `date_from`, `date_to`, `deposit`, `model` | A tester `.ini` config draft (no execution). |
+| `tester_run_backtest_if_supported` | `config_ini: str | None` | Gated; off-Windows returns `UNSUPPORTED_IN_THIS_ENVIRONMENT`. **Approval required.** |
+| `tester_import_csv` | `path` (`.csv` in the reports dir) | Header + parsed rows + delimiter. |
+| `tester_review_results` | `summary: dict` | Normalised metrics + red-flag list. |
+| `tester_compare_runs` | `runs: list[dict]` | Best run by profit factor / net profit / drawdown. |
+| `tester_generate_backtest_report` | `review: dict`, `title` | Markdown report string. |
+
+## Declared but disabled (Level 4/5 — not registered as tools)
+
+`mt5_chart_*`, `mt5_ea_*`, and `mt5_live_*` are declared in `policy.py` so the
+capability model documents them and `dispatch()` fails closed, but they are
+**disabled by default and not exposed as MCP tools** in this phase. Operational
+chart/EA-runtime and live-account control are out of scope here.
+
 ## BLOCKED / not implemented
 
 No tool by these names exists: `send_order`, `place_order`, `modify_order`,

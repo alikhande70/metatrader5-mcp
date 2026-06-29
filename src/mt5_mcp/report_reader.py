@@ -16,11 +16,12 @@ files are allowed.
 
 from __future__ import annotations
 
-import os
 import re
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
+
+from .paths import PathConfinementError, env_base_dir, resolve_within
 
 # Default reports directory used when MT5_MCP_REPORTS_DIR is not set. It lives
 # under the runtime working directory so the SAFE_READ tool has a bounded,
@@ -30,7 +31,7 @@ DEFAULT_REPORTS_DIRNAME = "reports"
 ALLOWED_REPORT_SUFFIXES = (".html", ".htm")
 
 
-class ReportPathError(ValueError):
+class ReportPathError(PathConfinementError):
     """Raised when a report path escapes the allowed reports directory or has a disallowed extension."""
 
 
@@ -88,10 +89,7 @@ def _summary_from_rows(rows: list[list[str]]) -> dict[str, str]:
 
 def _reports_base_dir() -> Path:
     """Resolved base directory that all reports must live under."""
-    base = os.environ.get("MT5_MCP_REPORTS_DIR")
-    if base:
-        return Path(base).expanduser().resolve()
-    return (Path.cwd() / DEFAULT_REPORTS_DIRNAME).resolve()
+    return env_base_dir("MT5_MCP_REPORTS_DIR", DEFAULT_REPORTS_DIRNAME)
 
 
 def _resolve_report_path(path: str) -> Path:
@@ -102,6 +100,8 @@ def _resolve_report_path(path: str) -> Path:
     """
     base_dir = _reports_base_dir()
 
+    # Keep the suffix check here (not in resolve_within) so the error message can
+    # name the env var and default directory the caller needs.
     if Path(path).suffix.lower() not in ALLOWED_REPORT_SUFFIXES:
         raise ReportPathError(
             f"read_strategy_report only accepts {'/'.join(ALLOWED_REPORT_SUFFIXES)} files, got "
@@ -109,16 +109,13 @@ def _resolve_report_path(path: str) -> Path:
             f"this; default is '{DEFAULT_REPORTS_DIRNAME}/')."
         )
 
-    # Joining keeps relative paths under base_dir; if `path` is absolute it wins
-    # the join, so the containment check below is what actually enforces safety.
-    candidate = (base_dir / path).resolve()
-
-    if not candidate.is_relative_to(base_dir):
+    try:
+        return resolve_within(base_dir, path)
+    except PathConfinementError as exc:
         raise ReportPathError(
             f"Report path '{path}' resolves outside the allowed reports directory ({base_dir}). "
             "Use a path inside MT5_MCP_REPORTS_DIR (or the default 'reports/' directory)."
-        )
-    return candidate
+        ) from exc
 
 
 def _list_available_reports(base_dir: Path, limit: int = 20) -> list[str]:

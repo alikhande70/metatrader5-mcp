@@ -1,19 +1,34 @@
-# Architecture (Phase 1)
+# Architecture
 
 ```
 src/mt5_mcp/
   server.py          FastMCP tool registration. Every tool body calls action_router.dispatch().
-  action_router.py   Single choke point: classify -> approve -> log -> execute.
-  permissions.py     Action name -> SAFE_READ | SAFE_ANALYSIS | REQUIRES_APPROVAL | BLOCKED.
-  approval_gate.py   Console and file-based human approval. No auto-approval mode exists.
+  policy.py          Canonical capability manifest: ToolPolicy + PermissionLevel(0-5) + RiskLevel.
+  permissions.py     Derives SAFE_READ | SAFE_ANALYSIS | REQUIRES_APPROVAL | BLOCKED from policy.py.
+  action_router.py   Single choke point: classify -> gate (approve/double) -> audit -> execute.
+  approval_gate.py   Console and file-based human approval (single + double). No auto-approval mode.
   risk_guard.py       Hard block on live/contest accounts; demo trading is opt-in (default off).
+  paths.py            Shared filesystem-confinement helper (resolve_within).
   mt5_bridge.py       Only module that imports `MetaTrader5`. Read wrappers + calc/check wrappers.
   analysis_tools.py   Pure functions over plain dicts (no MT5 connection).
   order_tools.py      Order planning: margin/profit calc, order_check, prepare_order_plan. Never order_send.
   log_reader.py        Reads MT5 terminal/expert .log files.
   report_reader.py    Parses Strategy Tester HTML reports.
+  workspace_tools.py  MQL5 workspace config + listing + snapshot/restore.
+  mql5_files.py       MQL5 file read/diff/draft + approval-gated mutations (backup+diff+rollback).
+  code_gen.py         MQL5 code drafting, static review, compile-error fix plans.
+  metaeditor_adapter.py  Prepare/parse compile (pure) + gated run_compile (Windows-only).
+  tester_adapter.py   Strategy Tester config drafts, CSV import, run review/compare (gated run).
+  audit_tools.py      Policy introspection (list/get) + read_audit_log.
   utils.py            Logging setup, JSON action-log writer, MT5 struct -> dict conversion.
 ```
+
+`policy.py` is the single source of truth. `ToolPolicy` records two independent
+flags — `user_can_request` (always true) and `model_can_initiate` (false for
+risky tools) — plus per-tool gating/requirement flags and forbidden-capability
+flags (`can_send_order`, …) that import-time invariants force to stay False.
+Levels 4/5 (chart/EA runtime, live) are declared but disabled by default and not
+registered as MCP tools in this phase.
 
 ## Request flow
 

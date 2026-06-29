@@ -15,7 +15,16 @@ dist/
 logs/*.log
 approvals/pending_*.json
 approvals/approved_*.txt
+approvals/approved2_*.txt
 approvals/denied_*.txt
+
+# bridge runtime artifacts - backups, rollback metadata, snapshots, drafts
+backups/*
+!backups/.gitkeep
+drafts/*
+!drafts/.gitkeep
+workspace/*
+!workspace/.gitkeep
 
 .pytest_cache/
 .mypy_cache/

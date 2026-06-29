@@ -39,16 +39,17 @@ pytest
 - [ ] Record the test count from the `pytest` summary line in the release
       notes (see template below).
 
-## 4. MCP tool count check
+## 4. Policy / tool surface check
 
-The server must register **exactly 18** tools (10 `SAFE_READ` + 4
-`SAFE_ANALYSIS` + 4 `REQUIRES_APPROVAL`). This is asserted by
-`tests/test_safety_invariants.py::test_mcp_tool_count_is_exactly_18` and
-`tests/test_server.py::test_all_expected_tools_are_registered`, but confirm it
-directly too:
+Every registered tool must have an **enabled** policy in `policy.py`, no policy
+may carry a forbidden capability, and Level 4/5 tools must stay disabled and
+unregistered. This is asserted by `tests/test_safety_invariants.py` (policy-driven
+invariants) and `tests/test_policy.py`. Confirm the surface directly too:
 
 ```bash
 grep -c "@mcp.tool()" src/mt5_mcp/server.py
+python -c "from mt5_mcp.server import mcp; from mt5_mcp.policy import get_policy; \
+print(all(get_policy(t.name) for t in mcp._tool_manager.list_tools()))"
 ```
 
 - [ ] Output is `18`.
@@ -101,8 +102,11 @@ git push origin v0.1.1-beta
 ```markdown
 ## v0.1.1-beta
 
-Phase 2: usability and safety-regression hardening. No order execution in
-this release — read / analysis / planning only, same as Phase 1.
+Policy-driven, user-directed development / file / backtest bridge foundation:
+a ToolPolicy capability model (permission levels 0–5), MQL5 workspace/file/code
+tools (read/draft/diff/backup + approval-gated mutations), and MetaEditor /
+Strategy Tester adapters. No order execution in this release — there is no
+`order_send`, and live/runtime trading actions remain disabled by default.
 
 ### Changed
 - <bullet list of PRs merged since the last tag>
