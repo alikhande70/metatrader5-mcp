@@ -102,8 +102,11 @@ git push origin v0.1.1-beta
 ```markdown
 ## v0.1.1-beta
 
-Phase 2: usability and safety-regression hardening. No order execution in
-this release — read / analysis / planning only, same as Phase 1.
+Policy-driven, user-directed development / file / backtest bridge foundation:
+a ToolPolicy capability model (permission levels 0–5), MQL5 workspace/file/code
+tools (read/draft/diff/backup + approval-gated mutations), and MetaEditor /
+Strategy Tester adapters. No order execution in this release — there is no
+`order_send`, and live/runtime trading actions remain disabled by default.
 
 ### Changed
 - <bullet list of PRs merged since the last tag>

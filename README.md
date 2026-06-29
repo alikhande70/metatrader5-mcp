@@ -160,7 +160,7 @@ pytest
 Tests run against a fake in-memory MT5 module (see `tests/conftest.py`), so
 they pass on any platform without a real terminal.
 
-## Known limitations (Phase 1)
+## Known limitations
 
 - No order execution (`order_send`) - intentionally not implemented.
 - No VPS/remote mode, no plugin system, no multi-strategy framework.
